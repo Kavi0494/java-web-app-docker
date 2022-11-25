@@ -1,25 +1,27 @@
-node {
-    def buildnumber= BUILD_NUMBER
-    stage("Git Clone"){
-        git url:'https://github.com/Kavi0494/java-web-app-docker.git',branch:'master'
+node
+{
+   def buildNumber = BUILD_NUMBER
+   stage("Git CheckOut"){
+        git url: 'https://github.com/sandeepdurai/java-web-app-docker.git',branch: 'master'
     }
-    stage("Maven Build"){
-        def mavenHome= tool name:"Maven",type:"maven"
-        sh "${mavenHome}/bin/mvn clean package" 
+    
+    stage(" Maven Clean Package"){
+      def mavenHome =  tool name: "Maven", type: "maven"
+      def mavenCMD = "${mavenHome}/bin/mvn"
+      sh "${mavenCMD} clean package"
+    } 
+   stage("Build Dokcer Image") {
+         sh "docker build -t sandeep08aws/javawebapp:${buildNumber} ."
     }
-    stage("build docker image"){
-        sh "docker build -t kavi0494/java-web-docker:${buildnumber} ."
+    stage("Docker login and Push"){
+        withCredentials([string(credentialsId: 'docker_hub_password', variable: 'Dockerpassword')]){
+         sh "docker login -u sandeep08aws -p ${Dockerpassword} " 
+           }
+        sh "docker push sandeep08aws/javawebapp:${buildNumber}"
     }
-    stage("docker login and push"){
-        withCredentials([string(credentialsId: 'docker_hub_pwd', variable: 'docker_hub_pwd')]) {
-            sh "docker login -u kavi0494 -p ${docker_hub_pwd}"
-}
-        sh "docker push kavi0494/java-web-docker:${buildnumber}"
-    }
-    stage("deploy image to deployment server as a container"){
-        sshagent(['docker_server']) {
-        sh "ssh -o StrictHostKeyChecking=no ubuntu@18.60.57.214 docker rm -f javawebappcon || true"
-        sh "ssh -o StrictHostKeyChecking=no ubuntu@18.60.57.214 docker run -d -p 8080:8080 --name javawebappcon1 kavi0494/java-web-docker:${buildnumber}"
-}
-    }
+    stage("Deploy to dockercontinor in docker deployer"){
+        sshagent(['docker_ssh_password']) {
+            sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.2.57 docker rm -f cloudcandy || true"
+            sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.2.57 docker run -d -p 8080:8080 --name cloudcandy sandeep08aws/javawebapp:${buildNumber}"           
+    }  
 }
